@@ -1,0 +1,156 @@
+---
+- name: Full homeserver provisioning
+  hosts: homeserver
+  become: yes
+
+  handlers:
+    - name: restart ssh
+      systemd:
+        name: ssh
+        state: restarted
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install avahi-daemon for local hostname resolution
+      apt:
+        name: avahi-daemon
+        state: present
+
+    - name: Install VAAPI driver packages
+      apt:
+        name:
+          - i965-va-driver
+          - vainfo
+        state: present
+
+    - name: SSH hardening - disable password auth
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PasswordAuthentication'
+        line: 'PasswordAuthentication no'
+      notify: restart ssh
+
+    - name: SSH hardening - disable root login
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PermitRootLogin'
+        line: 'PermitRootLogin no'
+      notify: restart ssh
+
+    - name: Install gnupg (required for apt repository key handling)
+      apt:
+        name: gnupg
+        state: present
+
+    - name: Create Docker keyrings directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Download Docker GPG key
+      get_url:
+        url: https://download.docker.com/linux/debian/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: '0644'
+
+    - name: Add Docker apt repository
+      apt_repository:
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
+        state: present
+        filename: docker
+
+    - name: Install Docker packages
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Add boss to docker group
+      user:
+        name: boss
+        groups: docker
+        append: yes
+
+    - name: Create general srv directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: boss
+        group: boss
+        mode: '0755'
+      loop:
+        - /srv/jellyfin/config
+        - /srv/media/movies
+        - /srv/media/music
+        - /srv/npm/data
+        - /srv/npm/letsencrypt
+        - /srv/prometheus/config
+
+    - name: Create prometheus data dir with container-required ownership
+      file:
+        path: /srv/prometheus/data
+        state: directory
+        owner: "65534"
+        group: "65534"
+        mode: '0755'
+
+    - name: Create grafana data dir with container-required ownership
+      file:
+        path: /srv/grafana/data
+        state: directory
+        owner: "472"
+        group: "472"
+        mode: '0755'
+
+    - name: Create homeserver project directory
+      file:
+        path: /home/boss/homeserver
+        state: directory
+        owner: boss
+        group: boss
+
+    - name: Deploy docker-compose.yml
+      copy:
+        src: docker-compose.yml
+        dest: /home/boss/homeserver/docker-compose.yml
+        owner: boss
+        group: boss
+        mode: '0644'
+
+    - name: Install fail2ban
+      apt:
+        name: fail2ban
+        state: present
+
+    - name: Deploy fail2ban jail config
+      copy:
+        dest: /etc/fail2ban/jail.local
+        content: |
+          [sshd]
+          enabled = true
+          port = ssh
+          filter = sshd
+          logpath = /var/log/auth.log
+          maxretry = 5
+          bantime = 3600
+          findtime = 600
+          ignoreip = 127.0.0.1/8 192.168.1.0/24
+
+    - name: Enable and start fail2ban
+      systemd:
+        name: fail2ban
+        enabled: yes
+        state: restarted
+
+    - name: Bring up the Docker Compose stack
+      command: docker compose up -d
+      args:
+        chdir: /home/boss/homeserver

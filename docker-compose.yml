@@ -1,0 +1,75 @@
+services:
+  jellyfin:
+    image: jellyfin/jellyfin
+    container_name: jellyfin
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - /srv/jellyfin/config:/config
+      - /srv/media/movies:/data/movies
+      - /srv/media/music:/data/music
+    devices:
+      - /dev/dri:/dev/dri
+
+  samba:
+    image: dperson/samba
+    container_name: samba
+    restart: unless-stopped
+    ports:
+      - "139:139"
+      - "445:445"
+    volumes:
+      - /srv/media:/media
+    command:
+      - -p
+      - -u
+      - boss;CHANGEME
+      - -s
+      - media;/media;yes;no;no;boss
+
+  nginx-proxy-manager:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: npm
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "81:81"
+    volumes:
+      - /srv/npm/data:/data
+      - /srv/npm/letsencrypt:/etc/letsencrypt
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - /srv/prometheus/config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - /srv/prometheus/data:/prometheus
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - /srv/grafana/data:/var/lib/grafana
