@@ -59,5 +59,5 @@ YAML parsing quirk in Docker Compose's string-form `command:` field.
 
 ## Status / roadmap
 
-Actively maintained homelab. Planned next: k3s (Kubernetes), a second node
+Actively maintained homelab. k3s (single-node Kubernetes) is running alongside Docker Compose stack - see ['ansible/k3s.yml'](ansible/k3s.yml). Planned next:  a second node
 for multi-host Ansible practice, and a CI pipeline via GitHub Actions.

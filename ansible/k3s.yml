@@ -1,0 +1,29 @@
+---
+- name: Install k3s (single-node, no built-in load balancer/ingress)
+  hosts: homeserver
+  become: yes
+
+  tasks:
+    - name: Download and run k3s install script
+      shell: |
+        curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--disable traefik --disable servicelb" sh -s -
+      args:
+        creates: /usr/local/bin/k3s
+
+    - name: Ensure k3s service is enabled and running
+      systemd:
+        name: k3s
+        state: started
+        enabled: yes
+
+    - name: Wait for node to report Ready
+      command: k3s kubectl get nodes
+      register: node_status
+      until: "'Ready' in node_status.stdout"
+      retries: 10
+      delay: 10
+      changed_when: false
+
+    - name: Show node status
+      debug:
+        var: node_status.stdout_lines
