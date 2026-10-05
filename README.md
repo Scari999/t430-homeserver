@@ -71,3 +71,18 @@ exposed on NodePort 30778). Provisioned by
 
 Portainer mounts the Docker socket, which is effectively root access to the
 host. Keep port 9443 LAN-only and do not expose it to the internet.
+
+## Alerting (Grafana + Telegram)
+
+Grafana alert rules notify a Telegram bot. The exported rules are in
+[`grafana/alert-rules.yaml`](grafana/alert-rules.yaml).
+
+| Rule | Condition | Pending period |
+|---|---|---|
+| Host down | node-exporter target `up` below 1 | 2m |
+| Disk usage | root filesystem above 85% | 5m |
+| Memory usage | above 90% | 5m |
+| CPU temperature | above 85 C | 5m |
+
+The Telegram bot token and chat ID are stored in the Grafana contact point
+only and are not committed to this repo.
