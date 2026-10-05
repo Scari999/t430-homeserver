@@ -61,3 +61,13 @@ YAML parsing quirk in Docker Compose's string-form `command:` field.
 
 Actively maintained homelab. k3s (single-node Kubernetes) is running alongside Docker Compose stack - see ['ansible/k3s.yml'](ansible/k3s.yml). Planned next:  a second node
 for multi-host Ansible practice, and a CI pipeline via GitHub Actions.
+
+## Management UI (Portainer)
+
+Portainer runs as a container and manages both environments from one UI:
+the local Docker stack and the k3s cluster (via the Portainer agent,
+exposed on NodePort 30778). Provisioned by
+[`ansible/portainer.yml`](ansible/portainer.yml).
+
+Portainer mounts the Docker socket, which is effectively root access to the
+host. Keep port 9443 LAN-only and do not expose it to the internet.

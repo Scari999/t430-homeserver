@@ -1,0 +1,36 @@
+---
+- name: Deploy Portainer and connect it to k3s
+  hosts: homeserver
+  become: yes
+
+  tasks:
+    - name: Create Portainer data directory
+      file:
+        path: /srv/portainer/data
+        state: directory
+        mode: '0755'
+
+    - name: Create Portainer project directory
+      file:
+        path: /home/boss/homeserver/portainer
+        state: directory
+        owner: boss
+        group: boss
+
+    - name: Deploy Portainer compose file
+      copy:
+        src: portainer-compose.yml
+        dest: /home/boss/homeserver/portainer/docker-compose.yml
+        owner: boss
+        group: boss
+        mode: '0644'
+
+    - name: Start Portainer
+      command: docker compose up -d
+      args:
+        chdir: /home/boss/homeserver/portainer
+
+    - name: Deploy Portainer agent into k3s
+      command: k3s kubectl apply -f https://downloads.portainer.io/ce-lts/portainer-agent-k8s-nodeport.yaml
+      register: agent_apply
+      changed_when: "'created' in agent_apply.stdout or 'configured' in agent_apply.stdout"
