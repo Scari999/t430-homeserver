@@ -88,11 +88,17 @@
         mode: '0755'
       loop:
         - /srv/jellyfin/config
-        - /srv/media/movies
-        - /srv/media/music
         - /srv/npm/data
         - /srv/npm/letsencrypt
         - /srv/prometheus/config
+
+    - name: Create media directories (ownership is managed by the Samba container)
+      file:
+        path: "{{ item }}"
+        state: directory
+      loop:
+        - /srv/media/movies
+        - /srv/media/music
 
     - name: Create prometheus data dir with container-required ownership
       file:
