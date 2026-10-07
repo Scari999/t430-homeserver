@@ -8,6 +8,7 @@ services:
       - /srv/jellyfin/config:/config
       - /srv/media/movies:/data/movies
       - /srv/media/music:/data/music
+      - /srv/media/anime:/data/anime
     devices:
       - /dev/dri:/dev/dri
 
@@ -23,7 +24,7 @@ services:
     command:
       - -p
       - -u
-      - boss;CHANGEME
+      - boss;${SAMBA_PASSWORD}
       - -s
       - media;/media;yes;no;no;boss
 

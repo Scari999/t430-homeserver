@@ -99,6 +99,7 @@
       loop:
         - /srv/media/movies
         - /srv/media/music
+        - /srv/media/anime
 
     - name: Create prometheus data dir with container-required ownership
       file:
