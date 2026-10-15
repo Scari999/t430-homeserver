@@ -174,8 +174,6 @@ Similarly can be done for the other rules.
 
 - **No backups.** Media, Jellyfin config, Grafana and Portainer data exist only on the T430's SSD. This is the highest-priority item.
 - **`prometheus.yml` is in the repo but not deployed by a playbook.** It is stored as `ansible/files/prometheus.yml`. A future task in `site.yml` should copy it to `/srv/prometheus/config/`. Until then, step 6 of section 8 is manual. Update the repo copy whenever the live file changes.
-- **Only the "Host down" alert has been tested.** Test the disk, memory and temperature rules.
 - **Container alerts** (container down) are not possible with node-exporter alone and would need cAdvisor.
-- **Repo commit author email** is the personal one. This was accepted. Change it only if the decision changes.
 
 Passwords and tokens (Samba, Grafana admin, Portainer, Telegram bot token) are not stored in this document or in git. Keep them in a password manager.
