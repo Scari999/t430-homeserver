@@ -4,6 +4,8 @@ A self-hosted media server and infrastructure learning project, built on a
 repurposed Lenovo ThinkPad T430 running headless Debian 13, with a fully
 containerized service stack and Ansible-based provisioning.
 
+![Grafana dashboard](docs/images/grafana.png)
+
 ## Motivation
 
 Built while working as a Technical Support Engineer to lean into
@@ -64,6 +66,8 @@ k3s cluster (through the Portainer agent, exposed on NodePort 30778).
 Portainer mounts the Docker socket, which is effectively root access to the
 host. Port 9443 is kept LAN-only and is never exposed to the internet.
 
+![Portainer overview](docs/images/portainer.png)
+
 ## Kubernetes (k3s)
 
 A lightweight single-node k3s cluster runs alongside the Docker Compose stack.
@@ -83,6 +87,8 @@ Grafana alert rules notify a Telegram bot. The exported rules are in
 | Disk usage | root filesystem above 85% | 5m |
 | Memory usage | above 90% | 5m |
 | CPU temperature | above 85 C | 5m |
+
+![Grafana alert rules](docs/images/grafanaalerts.ong)
 
 The Telegram bot token and chat ID are stored in the Grafana contact point only
 and are not committed to this repo.
