@@ -29,48 +29,48 @@ rather than tutorial-only exposure.
 | Prometheus | Metrics collection | 9090 |
 | Grafana | Metrics dashboards | 3000 |
 | node-exporter | Host-level hardware metrics | host network |
+| Portainer | Management UI for Docker and k3s | 9443 |
 
 All services are defined in [`docker-compose.yml`](docker-compose.yml) and
-deployed via Docker Compose.
+deployed via Docker Compose. Portainer has its own compose file in [`ansible/files/portainer-compose.yml`](ansible/files/portainer-compose.yml).
 
 ## Provisioning (Ansible)
 
-The full build — OS hardening, Docker install, VAAPI drivers, fail2ban, and
-the container stack — is codified in [`ansible/site.yml`](ansible/site.yml).
-Any similar Debian machine can be brought to the same state with:
+The build is codified in three playbooks in [`ansible/`](ansible/):
+
+- [`site.yml`](ansible/site.yml): OS hardening, Docker, fail2ban, lid-close setting, container stack
+- [`k3s.yml`](ansible/k3s.yml): single-node k3s cluster
+- [`portainer.yml`](ansible/portainer.yml): Portainer and its k3s agent
+
+Run from the control machine, in the `ansible/` folder:
 
 ```bash
-ansible-playbook -i ansible/hosts.ini ansible/site.yml -K --check --diff   # dry run
-ansible-playbook -i ansible/hosts.ini ansible/site.yml -K                  # apply
+ansible-playbook -i hosts.ini site.yml -K --check --diff   # dry run
+ansible-playbook -i hosts.ini site.yml -K                  # apply
 ```
 
-## Security notes
-
-- SSH: key-only authentication, root login disabled
-- fail2ban: bans repeated failed SSH login attempts
-- Samba credentials in this repo are placeholders (`CHANGEME`) — real
-  secrets are never committed to version control. Replace before deploying.
-
-## Debugging write-up
-
-[`docs/samba-yaml-debugging.md`](docs/samba-yaml-debugging.md) — a postmortem
-of a multi-hour debugging session tracing a Samba container crash loop to a
-YAML parsing quirk in Docker Compose's string-form `command:` field.
-
-## Status / roadmap
-
-Actively maintained homelab. k3s (single-node Kubernetes) is running alongside Docker Compose stack - see ['ansible/k3s.yml'](ansible/k3s.yml). Planned next:  a second node
-for multi-host Ansible practice, and a CI pipeline via GitHub Actions.
+Before the first run:
+- Edit `hosts.ini` to point at your own target host.
+- On the server, create `~/homeserver/.env` containing `SAMBA_PASSWORD=...`.
+- The Prometheus config is stored in
+  [`ansible/files/prometheus.yml`](ansible/files/prometheus.yml) and still has to be
+  copied to `/srv/prometheus/config/` by hand.
 
 ## Management UI (Portainer)
 
-Portainer runs as a container and manages both environments from one UI:
-the local Docker stack and the k3s cluster (via the Portainer agent,
-exposed on NodePort 30778). Provisioned by
-[`ansible/portainer.yml`](ansible/portainer.yml).
+Portainer manages both environments from one UI: the local Docker stack and the
+k3s cluster (through the Portainer agent, exposed on NodePort 30778).
 
 Portainer mounts the Docker socket, which is effectively root access to the
-host. Keep port 9443 LAN-only and do not expose it to the internet.
+host. Port 9443 is kept LAN-only and is never exposed to the internet.
+
+## Kubernetes (k3s)
+
+A lightweight single-node k3s cluster runs alongside the Docker Compose stack.
+Traefik and ServiceLB are disabled at install time, because Nginx Proxy Manager
+already uses ports 80 and 443. `kubectl` runs on the control machine using the
+cluster kubeconfig, pointed at the server's static LAN IP. No production
+workloads run on it yet.
 
 ## Alerting (Grafana + Telegram)
 
@@ -84,5 +84,30 @@ Grafana alert rules notify a Telegram bot. The exported rules are in
 | Memory usage | above 90% | 5m |
 | CPU temperature | above 85 C | 5m |
 
-The Telegram bot token and chat ID are stored in the Grafana contact point
-only and are not committed to this repo.
+The Telegram bot token and chat ID are stored in the Grafana contact point only
+and are not committed to this repo.
+
+
+## Security notes
+
+- SSH: key-only authentication, root login disabled
+- fail2ban: bans repeated failed SSH login attempts
+- The Samba password is read from '.env' file on the server ('SAMBA_PASSWORD'). '.env' is listed in '.gitignore' and is never committed.
+- Portainer and all other services are LAN-only
+
+## Documentation
+
+- Operations guide (commands, recovery after power loss, rebuild procedure):
+  [`docs/homeserver-sop.md`](docs/homeserver-sop.md)
+- Debugging write-up: [`docs/samba-yaml-debugging.md`](docs/samba-yaml-debugging.md),
+  a postmortem of a Samba container crash loop traced to a YAML parsing quirk in
+  Docker Compose's string-form `command:` field.
+
+## Status / roadmap
+
+Actively maintained homelab. Planned next:
+
+- Backups with a tested restore procedure
+- CI with GitHub Actions (lint the playbooks on every push)
+- Terraform on a free cloud tier, configured with the existing playbooks
+- A second node (Ansible multi-host inventory, monitoring target, backup destination)
