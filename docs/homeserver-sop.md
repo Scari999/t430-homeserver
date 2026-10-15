@@ -94,7 +94,7 @@ Connect: `ssh boss@akmon.local` (or `ssh boss@192.168.1.32` if the name does not
 | `ansible-playbook -i hosts.ini site.yml -K` | Apply. `-K` asks for the `boss` sudo password |
 | `git add . && git commit -m "message" && git push` | Save changes to GitHub |
 
-Playbooks: `site.yml` (OS, Docker, fail2ban, stack), `k3s.yml` (Kubernetes), `portainer.yml` (Portainer and k3s agent).
+Playbooks: `site.yml` (OS, Docker, fail2ban, lid-closing setting, stack), `k3s.yml` (Kubernetes), `portainer.yml` (Portainer and k3s agent).
 
 ## 5. Power loss or reboot: bring everything back
 
@@ -116,8 +116,8 @@ Docker, k3s, ssh, fail2ban and avahi start at boot, and containers use `restart:
    - Grafana alerts will message you if something is still down
 
 Prevent surprises (not confirmed as configured in this build, check them):
-- **Lid close:** by default a Debian laptop suspends when the lid closes. Set `HandleLidSwitch=ignore` and `HandleLidSwitchExternalPower=ignore` in `/etc/systemd/logind.conf`, then reboot.
-- **BIOS (F1 at boot):** look for an option like "Power-On with AC Attach" so it starts by itself when power returns.
+- **Lid close (configured):** the lid can be closed without the server suspending. The setting is in '/etc/system.md/login.conf.d/lid.conf' and in 'site.yml'. (By default a Debian laptop suspends when the lid closes. Set `HandleLidSwitch=ignore` and `HandleLidSwitchExternalPower=ignore` in `/etc/systemd/logind.conf`, then reboot.)
+- **BIOS power-on after AC loss: not configured (optional)** After a long outage that drains the battery, the server stays off until the power button is pressed. The "Host down" alert singals this.
 - The battery acts as a short backup. A long outage that drains it needs the manual power-on above.
 
 ## 6. Updates
@@ -167,17 +167,15 @@ Prevent surprises (not confirmed as configured in this build, check them):
 | Memory usage | above 90% | 5m |
 | CPU temperature | above 85 C | 5m |
 
-Only "Host down" has been tested. Test method: `docker stop node-exporter`, wait about 4 minutes, then `docker start node-exporter`.
+For "Host down" the test method: `docker stop node-exporter`, wait about 4 minutes, then `docker start node-exporter`.
+Similarly can be done for the other rules.
 
 ## 10. Known gaps and pending items
 
 - **No backups.** Media, Jellyfin config, Grafana and Portainer data exist only on the T430's SSD. This is the highest-priority item.
 - **`prometheus.yml` is in the repo but not deployed by a playbook.** It is stored as `ansible/files/prometheus.yml`. A future task in `site.yml` should copy it to `/srv/prometheus/config/`. Until then, step 6 of section 8 is manual. Update the repo copy whenever the live file changes.
-- **Lid and BIOS power settings** (section 5) are unconfirmed.
 - **Only the "Host down" alert has been tested.** Test the disk, memory and temperature rules.
 - **Container alerts** (container down) are not possible with node-exporter alone and would need cAdvisor.
 - **Repo commit author email** is the personal one. This was accepted. Change it only if the decision changes.
-
-Done: Samba password moved to `.env`, anime library running, Samsung M7 monitor connected.
 
 Passwords and tokens (Samba, Grafana admin, Portainer, Telegram bot token) are not stored in this document or in git. Keep them in a password manager.
