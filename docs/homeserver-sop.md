@@ -144,7 +144,7 @@ Prevent surprises (not confirmed as configured in this build, check them):
 | Portainer setup token or 403 | `docker restart portainer`, then `docker logs portainer 2>&1 \| grep setup_token`, use the new token within 5 minutes |
 | Disk nearly full | `df -h /srv`, `docker system df`, `docker image prune` |
 | A container keeps restarting | `docker logs NAME --tail 50` and read the last error |
-| `curl` download from paste.rs is 435 bytes | That is the 404 page. URLs are case-sensitive, so retype exactly |
+| `curl` download from paste.rs is 435 bytes | That is the 404 page. Good to know if you are using paste.rs |
 | TV or monitor cannot connect to Jellyfin | Use `http://192.168.1.32:8096` (IP, `http`, port 8096) and make sure the device is on the same network as the server |
 
 ## 8. Rebuild from scratch (SSD failure or reinstall)
