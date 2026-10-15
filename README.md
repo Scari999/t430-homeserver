@@ -6,7 +6,7 @@ containerized service stack and Ansible-based provisioning.
 
 ## Motivation
 
-Built while transitioning from a Technical Support Engineer role toward
+Built while working as a Technical Support Engineer to lean into
 SRE / Sysadmin work — a way to get real hands-on practice with Linux
 administration, containerization, monitoring, and infrastructure-as-code,
 rather than tutorial-only exposure.
