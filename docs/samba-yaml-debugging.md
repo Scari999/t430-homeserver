@@ -31,7 +31,7 @@ as its own list item:
 ```yaml
 command:
   - -u
-  - boss;eggbacon
+  - boss;PASSWORD
 ```
 
 In list form, each item is passed through literally with no shell-style
