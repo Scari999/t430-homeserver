@@ -88,7 +88,7 @@ Grafana alert rules notify a Telegram bot. The exported rules are in
 | Memory usage | above 90% | 5m |
 | CPU temperature | above 85 C | 5m |
 
-![Grafana alert rules](docs/images/grafanaalerts.ong)
+![Grafana alert rules](docs/images/grafanaalerts.png)
 
 The Telegram bot token and chat ID are stored in the Grafana contact point only
 and are not committed to this repo.
