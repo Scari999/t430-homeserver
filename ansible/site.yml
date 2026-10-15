@@ -9,6 +9,11 @@
         name: ssh
         state: restarted
 
+    - name: restart logind
+      systemd:
+        name: systemd-logind
+        state: restarted
+
   tasks:
     - name: Update apt cache
       apt:
@@ -39,6 +44,23 @@
         regexp: '^#?PermitRootLogin'
         line: 'PermitRootLogin no'
       notify: restart ssh
+
+    - name: Create logind drop-in directory
+      file:
+        path: /etc/systemd/logind.conf.d
+        state: directory
+        mode: '0755'
+
+    - name: Keep running when the laptop lid is closed
+      copy:
+        dest: /etc/systemd/logind.conf.d/lid.conf
+        content: |
+          [Login]
+          HandleLidSwitch=ignore
+          HandleLidSwitchExternalPower=ignore
+          HandleLidSwitchDocked=ignore
+        mode: '0644'
+      notify: restart logind
 
     - name: Install gnupg (required for apt repository key handling)
       apt:
