@@ -24,8 +24,9 @@ Rule: a VPN on Mint blocks access to the home network. Disconnect it or enable "
 | Portainer | `https://akmon.local:9443` | Docker and k3s in one UI. LAN only, never port-forward |
 | Nginx Proxy Manager | `http://akmon.local:81` | Installed, not in active use |
 | k3s API | `https://192.168.1.32:6443` | Used by `kubectl` on Mint |
+| Pi-hole | 'http:/akmon.local:8081/admin' | DNS on port 53. Devices are pointed at '192.168.1.32' by hand |
 
-Containers (7): jellyfin, samba, npm, node-exporter, prometheus, grafana, portainer.
+Containers (8): jellyfin, samba, npm, node-exporter, prometheus, grafana, portainer, pi-hole.
 
 ## 3. Where things live
 
@@ -39,6 +40,8 @@ Containers (7): jellyfin, samba, npm, node-exporter, prometheus, grafana, portai
 | Grafana data | `/srv/grafana/data` (owned by UID 472, do not change) |
 | k3s kubeconfig | `/etc/rancher/k3s/k3s.yaml` (on Mint: `~/.kube/config`) |
 | Playbooks (on Mint) | `~/t430-homeserver/ansible/` (`site.yml`, `k3s.yml`, `portainer.yml`) |
+| Pi-hole compose file and '.env' | `~/homeserver/pihole/` |
+| Pi-hole data | `/srv/pihole/etc-picole` |
 
 ## 4. Everyday commands
 
@@ -74,6 +77,8 @@ Connect: `ssh boss@akmon.local` (or `ssh boss@192.168.1.32` if the name does not
 | `docker stats --no-stream` | CPU and RAM per container |
 | `docker system df` | Disk used by Docker |
 | `docker image prune` | Delete unused images to free space |
+| `docker exec pihole pihole -g` | Update Pi-hole's blocklists (gravity) |
+| `nslookup doubleclick.net 192.168.1.32` | Test Pi-hole from another machine. A blocked domain returns `0.0.0.0` |
 
 ### Kubernetes (on Mint; on the T430 prefix with `sudo k3s`)
 
@@ -104,10 +109,11 @@ Docker, k3s, ssh, fail2ban and avahi start at boot, and containers use `restart:
 2. Wait about 3 minutes. From Mint (VPN off): `ping 192.168.1.32`.
 3. `ssh boss@akmon.local`
 4. Check services: `systemctl is-active docker k3s ssh fail2ban avahi-daemon` (all should say `active`).
-5. Check containers: `docker ps`. Expect 7 running.
+5. Check containers: `docker ps`. Expect 8 running.
 6. If any are missing:
    - `cd ~/homeserver && docker compose up -d`
    - `cd ~/homeserver/portainer && docker compose up -d`
+   - `cd ~/homeserver/pihole && docker compose up -d`
 7. Check Kubernetes from Mint: `kubectl get nodes` (`Ready`). If not, on the T430: `sudo systemctl restart k3s`.
 8. Verify:
    - Prometheus targets page: both `prometheus` and `node` are UP
@@ -143,6 +149,8 @@ Prevent surprises (not confirmed as configured in this build, check them):
 | No Telegram alert | Grafana, Alerting, Contact points, press Test. Check the bot token and chat ID |
 | Portainer setup token or 403 | `docker restart portainer`, then `docker logs portainer 2>&1 \| grep setup_token`, use the new token within 5 minutes |
 | Disk nearly full | `df -h /srv`, `docker system df`, `docker image prune` |
+| A device has no internet after settings its DNS to Pi-hole | The server is off or Pi-hole is down. Set the device's DNS back to automatic, then check `docker pss --filter name=pi-hole` |
+| Ads still show on device | The device's DNS s not set to `192.168.1.32`, or its browser uses its own encrypted DNS. Youtube ads cannot be blocked by DNS |
 | A container keeps restarting | `docker logs NAME --tail 50` and read the last error |
 | `curl` download from paste.rs is 435 bytes | That is the 404 page. Good to know if you are using paste.rs |
 | TV or monitor cannot connect to Jellyfin | Use `http://192.168.1.32:8096` (IP, `http`, port 8096) and make sure the device is on the same network as the server |
@@ -153,6 +161,7 @@ Prevent surprises (not confirmed as configured in this build, check them):
 2. The router reservation for `192.168.1.32` is tied to the laptop's MAC, so it stays the same.
 3. From Mint: `ssh-copy-id boss@akmon.local`. If a host key warning appears: `ssh-keygen -R akmon.local`.
 4. On the T430, recreate `~/homeserver/.env` containing `SAMBA_PASSWORD=...` (password from your password manager).
+4a. Recreate `~/homeserver/pihole/.env` containing `PIHOLE_PASSWORD=...`, copy `ansible/files/pihole-compose.yml` to `~/homeserver/pihole/docker-compose.yml`, create `/srv/pihole/etc-pihole`, and run `docker compose up -d` there.
 5. On Mint: `cd ~/t430-homeserver/ansible`, then run `site.yml`, `k3s.yml` and `portainer.yml` in that order.
 6. Copy `prometheus.yml` from the repo to the server, then restart Prometheus. From `~/t430-homeserver` on Mint: `scp ansible/files/prometheus.yml boss@akmon.local:/tmp/` then on the T430 `sudo cp /tmp/prometheus.yml /srv/prometheus/config/prometheus.yml && docker restart prometheus`.
 7. On Mint, re-fetch the kubeconfig: `ssh boss@akmon.local "sudo cat /etc/rancher/k3s/k3s.yaml"`, save as `~/.kube/config`, change `127.0.0.1` to `192.168.1.32`, then `chmod 600 ~/.kube/config`.
@@ -175,5 +184,8 @@ Similarly can be done for the other rules.
 - **No backups.** Media, Jellyfin config, Grafana and Portainer data exist only on the T430's SSD. This is the highest-priority item.
 - **`prometheus.yml` is in the repo but not deployed by a playbook.** It is stored as `ansible/files/prometheus.yml`. A future task in `site.yml` should copy it to `/srv/prometheus/config/`. Until then, step 6 of section 8 is manual. Update the repo copy whenever the live file changes.
 - **Container alerts** (container down) are not possible with node-exporter alone and would need cAdvisor.
+- **Pihole is deployed by hand, with no playbook.** Add a task or playbook for it.
+- **DNS depends on one machine.** If the T430 is off, devices pointed at Pi-hole lose name resolution. A second Pi-hole on another machine  would fix this.
+- **Router DNS is locked.** Devices are pointed at Pi-hole individually.
 
 Passwords and tokens (Samba, Grafana admin, Portainer, Telegram bot token) are not stored in this document or in git. Keep them in a password manager.

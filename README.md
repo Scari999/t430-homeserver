@@ -32,6 +32,7 @@ rather than tutorial-only exposure.
 | Grafana | Metrics dashboards | 3000 |
 | node-exporter | Host-level hardware metrics | host network |
 | Portainer | Management UI for Docker and k3s | 9443 |
+| Pi-hole | DNS-level ad and tracker blocking | 53 (DNS), 8081 (web UI) |
 
 All services are defined in [`docker-compose.yml`](docker-compose.yml) and
 deployed via Docker Compose. Portainer has its own compose file in [`ansible/files/portainer-compose.yml`](ansible/files/portainer-compose.yml).
@@ -100,6 +101,18 @@ and are not committed to this repo.
 - fail2ban: bans repeated failed SSH login attempts
 - The Samba password is read from '.env' file on the server ('SAMBA_PASSWORD'). '.env' is listed in '.gitignore' and is never committed.
 - Portainer and all other services are LAN-only
+- The Pi-hole admin password is read from '~/homeserver/pihole.env' on the server and is never committed.
+
+## DNS ad blocking (Pi-hole)
+
+Pi-hole runs as a container and answers DNS queries for devices that use it, blocking unkown ad and tracker domains. The compose file is
+['ansible/files/pihole-compose.yml'](ansible/files/pihole-compose.yml). It was deployed manually with Docker and is not part of the Ansible
+playbooks yet. Web UI is on port 8081, because Nginx Proxy Manager uses port 80.
+
+The ISP router does not allow changing the DNS server it hands out, so each device is pointed at the server by hand ('192.168.1.32').
+
+Limits: DNS blocking cannot remove ads served from the same domain as the content, such as YouTube video ads. Devices that use their own
+encrypted DNS bypass it. If the server is off, devices using it lose name resolution until their DNS is set back to automatic.
 
 ## Documentation
 
@@ -117,3 +130,4 @@ Actively maintained homelab. Planned next:
 - CI with GitHub Actions (lint the playbooks on every push)
 - Terraform on a free cloud tier, configured with the existing playbooks
 - A second node (Ansible multi-host inventory, monitoring target, backup destination)
+- A second Pi-hole on another machine for DNS redundancy.
