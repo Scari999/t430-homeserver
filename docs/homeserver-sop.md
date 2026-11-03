@@ -24,7 +24,7 @@ Rule: a VPN on Mint blocks access to the home network. Disconnect it or enable "
 | Portainer | `https://akmon.local:9443` | Docker and k3s in one UI. LAN only, never port-forward |
 | Nginx Proxy Manager | `http://akmon.local:81` | Installed, not in active use |
 | k3s API | `https://192.168.1.32:6443` | Used by `kubectl` on Mint |
-| Pi-hole | 'http:/akmon.local:8081/admin' | DNS on port 53. Devices are pointed at '192.168.1.32' by hand |
+| Pi-hole | `http:/akmon.local:8081/admin` | DNS on port 53. Devices are pointed at `192.168.1.32` by hand |
 
 Containers (8): jellyfin, samba, npm, node-exporter, prometheus, grafana, portainer, pi-hole.
 
@@ -41,7 +41,7 @@ Containers (8): jellyfin, samba, npm, node-exporter, prometheus, grafana, portai
 | k3s kubeconfig | `/etc/rancher/k3s/k3s.yaml` (on Mint: `~/.kube/config`) |
 | Playbooks (on Mint) | `~/t430-homeserver/ansible/` (`site.yml`, `k3s.yml`, `portainer.yml`) |
 | Pi-hole compose file and '.env' | `~/homeserver/pihole/` |
-| Pi-hole data | `/srv/pihole/etc-picole` |
+| Pi-hole data | `/srv/pihole/etc-pihole` |
 
 ## 4. Everyday commands
 
