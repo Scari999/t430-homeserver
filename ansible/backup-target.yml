@@ -1,0 +1,81 @@
+---
+- name: Prepare the G72 as backup target
+  hosts: backupserver
+  become: true
+
+  tasks:
+    - name: Install restic
+      ansible.builtin.apt:
+        name: restic
+        state: present
+        update_cache: true
+        install_recommends: false
+        cache_valid_time: 3600
+
+    - name: Create backup user (key login only)
+      ansible.builtin.user:
+        name: akmonbackup
+        comment: Backup target user
+        shell: /bin/bash
+        create_home: true
+        password_lock: true
+        state: present
+
+    - name: Create backup base directory
+      ansible.builtin.file:
+        path: /srv/backup
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Create repository directory for akmon
+      ansible.builtin.file:
+        path: /srv/backup/akmon
+        state: directory
+        owner: akmonbackup
+        group: akmonbackup
+        mode: "0700"
+
+    - name: Create logind drop-in directory
+      ansible.builtin.file:
+        path: /etc/systemd/logind.conf.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Ignore lid switch (no suspend when the lid is closed)
+      ansible.builtin.copy:
+        dest: /etc/systemd/logind.conf.d/10-ignore-lid.conf
+        content: |
+          [Login]
+          HandleLidSwitch=ignore
+          HandleLidSwitchExternalPower=ignore
+          HandleLidSwitchDocked=ignore
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart logind
+
+    - name: Create .ssh directory for backup user
+      ansible.builtin.file:
+        path: /home/akmonbackup/.ssh
+        state: directory
+        owner: akmonbackup
+        group: akmonbackup
+        mode: "0700"
+
+    - name: Authorize the akmon backup key
+      ansible.builtin.copy:
+        src: akmon-backup.pub
+        dest: /home/akmonbackup/.ssh/authorized_keys
+        owner: akmonbackup
+        group: akmonbackup
+        mode: "0600"
+  
+  handlers:
+    - name: Restart logind
+      ansible.builtin.service:
+        name: systemd-logind
+        state: restarted
