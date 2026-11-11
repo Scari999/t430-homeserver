@@ -1,0 +1,178 @@
+---
+# Play 1: collect facts from the backup target (its SSH host key is trusted below).
+# The G72 must be powered on and reachable when this playbook runs.
+- name: Gather facts from the backup target
+  hosts: backupserver
+  gather_facts: true
+  tasks: []
+
+- name: Install and initialise restic backups on akmon
+  hosts: homeserver
+  become: true
+
+  vars:
+    restic_dir: /etc/restic
+    restic_password_file: /etc/restic/password
+    restic_repo: "sftp:g72-backup:/srv/backup/akmon"
+    restic_new_repo: false
+    g72_host: 192.168.1.5
+
+  environment:
+    RESTIC_REPOSITORY: "{{ restic_repo }}"
+    RESTIC_PASSWORD_FILE: "{{ restic_password_file }}"
+
+  tasks:
+    - name: Create root .ssh directory
+      tags: keys
+      ansible.builtin.file:
+        path: /root/.ssh
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Generate the backup SSH key (only if missing)
+      tags: keys
+      ansible.builtin.command: ssh-keygen -t ed25519 -N "" -C akmon-backup -f /root/.ssh/akmon-backup
+      args:
+        creates: /root/.ssh/akmon-backup
+
+    - name: Copy the public backup key to the control machine
+      tags: keys
+      ansible.builtin.fetch:
+        src: /root/.ssh/akmon-backup.pub
+        dest: "{{ playbook_dir }}/files/akmon-backup.pub"
+        flat: true
+
+    - name: Trust the G72 host key
+      ansible.builtin.known_hosts:
+        path: /root/.ssh/known_hosts
+        name: "{{ g72_host }}"
+        key: "{{ g72_host }} ssh-ed25519 {{ hostvars['g72-backup'].ansible_ssh_host_key_ed25519_public }}"
+        state: present
+
+    - name: Install restic
+      ansible.builtin.apt:
+        name: restic
+        state: present
+        update_cache: true
+        install_recommends: false
+        cache_valid_time: 3600
+
+    - name: Create restic config directory
+      ansible.builtin.file:
+        path: "{{ restic_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Check for the repository password file
+      ansible.builtin.stat:
+        path: "{{ restic_password_file }}"
+      register: password_stat
+
+    - name: Stop if the password file is missing (existing repository)
+      ansible.builtin.fail:
+        msg: >-
+          {{ restic_password_file }} is missing. If the repository already exists,
+          put the saved repository password into that file (root only, mode 0600)
+          and run again. For a brand-new repository run with -e restic_new_repo=true.
+      when: not password_stat.stat.exists and not (restic_new_repo | bool)
+
+    - name: Generate repository password (new repository only)
+      ansible.builtin.shell: umask 077 && head -c 32 /dev/urandom | base64 > {{ restic_password_file }}
+      args:
+        creates: "{{ restic_password_file }}"
+      when: restic_new_repo | bool
+
+    - name: SSH config for the backup target
+      ansible.builtin.copy:
+        dest: /root/.ssh/config
+        content: |
+          Host g72-backup
+              HostName {{ g72_host }}
+              User akmonbackup
+              IdentityFile /root/.ssh/akmon-backup
+              IdentitiesOnly yes
+              StrictHostKeyChecking yes
+              ConnectTimeout 10
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: Check whether the repository can be opened
+      ansible.builtin.command: restic cat config
+      register: repo_check
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Stop if the repository cannot be opened
+      ansible.builtin.fail:
+        msg: >-
+          Cannot open {{ restic_repo }}. Check that the G72 is on, that
+          backup-target.yml has authorized the key, and that the password file is
+          correct. For a brand-new repository run with -e restic_new_repo=true.
+      when: repo_check.rc != 0 and not (restic_new_repo | bool)
+
+    - name: Initialise the repository (new repository only)
+      ansible.builtin.command: restic init
+      when: repo_check.rc != 0 and (restic_new_repo | bool)
+
+    - name: Create restic env file
+      ansible.builtin.copy:
+        dest: /etc/restic/restic.env
+        content: |
+          RESTIC_REPOSITORY={{ restic_repo }}
+          RESTIC_PASSWORD_FILE={{ restic_password_file }}
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: Create node-exporter textfile directory
+      ansible.builtin.file:
+        path: /var/lib/node_exporter/textfile
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Create backup state directory
+      ansible.builtin.file:
+        path: /var/lib/restic-backup
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Install backup script
+      ansible.builtin.copy:
+        src: restic-backup.sh
+        dest: /usr/local/sbin/restic-backup.sh
+        owner: root
+        group: root
+        mode: "0750"
+
+    - name: Install restic backup service
+      ansible.builtin.copy:
+        src: restic-backup.service
+        dest: /etc/systemd/system/restic-backup.service
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Install restic backup timer
+      ansible.builtin.copy:
+        src: restic-backup.timer
+        dest: /etc/systemd/system/restic-backup.timer
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Keep the backup timer disabled (backups run on demand)
+      ansible.builtin.systemd:
+        name: restic-backup.timer
+        enabled: false
+        state: stopped
+        daemon_reload: true
