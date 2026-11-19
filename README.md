@@ -95,6 +95,20 @@ The Telegram bot token and chat ID are stored in the Grafana contact point only
 and are not committed to this repo.
 
 
+## Backups
+
+The settings and data that would be hard to recreate are backed up to a second computer, and restoring from the backup has been tested. The backups use [Restic](https://restic.net/) and are set up with Ansible.
+
+| | |
+|---|---|
+| Covered | Settings and data of Grafana, Jellyfin, Pi-hole, Nginx Proxy Manager, Portainer and Kubernetes (k3s), plus the Docker Compose files and `.env` files. Left out on purpose: the media library (large, can be copied again) and the monitoring history |
+| Schedule | On demand, with one command: `scripts/backup-and-shutdown.sh`. A nightly timer is included but switched off |
+| Kept | The last 7 days, 4 weeks and 6 months |
+| Destination | A second computer (HP G72) running Debian |
+| Encryption | Everything is encrypted before it leaves the server. The password is not stored in GitHub |
+| Alerts | A Telegram message if a backup fails, or if no backup has succeeded in 30 days (tested) |
+| Restore tested | Yes, see [`docs/restore-test-report.md`](docs/restore-test-report.md) |
+
 ## Security notes
 
 - SSH: key-only authentication, root login disabled
@@ -126,7 +140,6 @@ encrypted DNS bypass it. If the server is off, devices using it lose name resolu
 
 Actively maintained homelab. Planned next:
 
-- Backups with a tested restore procedure
 - CI with GitHub Actions (lint the playbooks on every push)
 - Terraform on a free cloud tier, configured with the existing playbooks
 - A second node (Ansible multi-host inventory, monitoring target, backup destination)
