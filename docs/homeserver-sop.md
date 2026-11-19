@@ -42,6 +42,10 @@ Containers (8): jellyfin, samba, npm, node-exporter, prometheus, grafana, portai
 | Playbooks (on Mint) | `~/t430-homeserver/ansible/` (`site.yml`, `k3s.yml`, `portainer.yml`) |
 | Pi-hole compose file and '.env' | `~/homeserver/pihole/` |
 | Pi-hole data | `/srv/pihole/etc-pihole` |
+| Backup repository (on the G72) | `/srv/backup/akmon` |
+| Backup password and settings | `/etc/restic/` (`password`, `restic.env`), SSH key `/root/.ssh/akmon-backup` |
+| Backup script and units | `/usr/local/sbin/restic-backup.sh`, `/etc/systemd/system/restic-backup.service` and `.timer` |
+| Backup status for monitoring | `/var/lib/node_exporter/textfile/backup.prom` |
 
 ## 4. Everyday commands
 
@@ -99,7 +103,22 @@ Connect: `ssh boss@akmon.local` (or `ssh boss@192.168.1.32` if the name does not
 | `ansible-playbook -i hosts.ini site.yml -K` | Apply. `-K` asks for the `boss` sudo password |
 | `git add . && git commit -m "message" && git push` | Save changes to GitHub |
 
-Playbooks: `site.yml` (OS, Docker, fail2ban, lid-closing setting, stack), `k3s.yml` (Kubernetes), `portainer.yml` (Portainer and k3s agent).
+Playbooks: `site.yml` (OS, Docker, fail2ban, lid-closing setting, stack), `k3s.yml` (Kubernetes), `portainer.yml` (Portainer and k3s agent), `backup-target.yml` (backup computer) and `backup.yml` (backups on the server).
+
+### Backup and restore (on Mint unless noted)
+
+| Command | What it does |
+|---|---|
+| `~/t430-homeserver/scripts/backup-and-shutdown.sh` | Run a backup (power the G72 on first, VPN off). Shuts the G72 down when the backup succeeds |
+| `ssh -t boss@akmon.local "sudo systemctl start restic-backup.service"` | Run a backup without shutting the G72 down |
+| `ssh -t boss@akmon.local "sudo journalctl -u restic-backup.service -n 40 --no-pager"` | Read the log of the last backup |
+| `sudo bash -c 'set -a; . /etc/restic/restic.env; restic snapshots'` (on the T430) | List the backup copies |
+| `sudo bash -c 'set -a; . /etc/restic/restic.env; restic restore latest --target /var/tmp/restore-test'` (on the T430) | Restore everything to a temporary folder. Delete it afterwards, it contains secrets |
+| `sudo bash -c 'set -a; . /etc/restic/restic.env; restic restore latest --target /var/tmp/restore-file --include /path/to/file'` (on the T430) | Restore one file. It lands under `/var/tmp/restore-file/path/to/file` |
+| `ansible-playbook -i hosts.ini backup-target.yml -K` | Set up the backup computer (G72) |
+| `ansible-playbook -i hosts.ini backup.yml -K` | Set up backups on the server (the G72 must be on) |
+
+Test results: `docs/restore-test-report.md`.
 
 ## 5. Power loss or reboot: bring everything back
 
@@ -181,7 +200,6 @@ Similarly can be done for the other rules.
 
 ## 10. Known gaps and pending items
 
-- **No backups.** Media, Jellyfin config, Grafana and Portainer data exist only on the T430's SSD. This is the highest-priority item.
 - **`prometheus.yml` is in the repo but not deployed by a playbook.** It is stored as `ansible/files/prometheus.yml`. A future task in `site.yml` should copy it to `/srv/prometheus/config/`. Until then, step 6 of section 8 is manual. Update the repo copy whenever the live file changes.
 - **Container alerts** (container down) are not possible with node-exporter alone and would need cAdvisor.
 - **Pihole is deployed by hand, with no playbook.** Add a task or playbook for it.
