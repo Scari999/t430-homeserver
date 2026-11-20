@@ -1,0 +1,15 @@
+---
+- name: Docker on the G72 for restore tests (temporary)
+  hosts: backupserver
+  become: true
+
+  tasks:
+    - name: Install Docker
+      ansible.builtin.apt:
+        name:
+          - docker.io
+          - docker-cli
+        state: present
+        update_cache: true
+        install_recommends: false
+        cache_valid_time: 3600
