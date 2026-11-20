@@ -186,7 +186,7 @@ Prevent surprises (not confirmed as configured in this build, check them):
 5b. On Mint, in `~/t430-homeserver/ansible`, with the G72 on: `ansible-playbook -i hosts.ini backup.yml -K --tags keys` (creates a new SSH key and saves its public half to `files/akmon-backup.pub`), then `ansible-playbook -i hosts.ini backup-target.yml -K` (lets the G72 accept that key), then `ansible-playbook -i hosts.ini backup.yml -K`. Commit the new `files/akmon-backup.pub`.
 6. Copy `prometheus.yml` from the repo to the server, then restart Prometheus. From `~/t430-homeserver` on Mint: `scp ansible/files/prometheus.yml boss@akmon.local:/tmp/` then on the T430 `sudo cp /tmp/prometheus.yml /srv/prometheus/config/prometheus.yml && docker restart prometheus`.
 7. On Mint, re-fetch the kubeconfig: `ssh boss@akmon.local "sudo cat /etc/rancher/k3s/k3s.yaml"`, save as `~/.kube/config`, change `127.0.0.1` to `192.168.1.32`, then `chmod 600 ~/.kube/config`.
-8. Restore the service data from the backup (G72 on). Grafana, Jellyfin, Nginx Proxy Manager, Pi-hole and Portainer come back with their users, settings, data source and alert rules. On the T430:
+8. Restore the service data from the backup (G72 on). Grafana, Jellyfin, Nginx Proxy Manager, Pi-hole and Portainer are restored from the backup. On the T430:
    - Restore the latest backup to a temporary folder: `sudo bash -c 'set -a; . /etc/restic/restic.env; restic restore latest --target /var/tmp/restore-rebuild'`
    - Stop the services: `docker stop grafana jellyfin portainer npm pihole`
    - Copy the data into place, keeping the owners: `sudo cp -a /var/tmp/restore-rebuild/srv/. /srv/`
