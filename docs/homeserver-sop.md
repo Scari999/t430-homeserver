@@ -182,9 +182,18 @@ Prevent surprises (not confirmed as configured in this build, check them):
 4. On the T430, recreate `~/homeserver/.env` containing `SAMBA_PASSWORD=...` (password from your password manager).
 4a. Recreate `~/homeserver/pihole/.env` containing `PIHOLE_PASSWORD=...`, copy `ansible/files/pihole-compose.yml` to `~/homeserver/pihole/docker-compose.yml`, create `/srv/pihole/etc-pihole`, and run `docker compose up -d` there.
 5. On Mint: `cd ~/t430-homeserver/ansible`, then run `site.yml`, `k3s.yml` and `portainer.yml` in that order.
+5a. Backup computer: power on the G72. The backup repository is still on it. On the T430, put the saved backup password (password manager entry `Restic repository password - akmon backups (G72)`) into `/etc/restic/password`, root only. Never let Ansible create a new one for an existing repository: `sudo install -d -m 700 /etc/restic && sudo bash -c 'umask 077; read -rsp "Backup password: " p; echo; printf "%s" "$p" > /etc/restic/password'`
+5b. On Mint, in `~/t430-homeserver/ansible`, with the G72 on: `ansible-playbook -i hosts.ini backup.yml -K --tags keys` (creates a new SSH key and saves its public half to `files/akmon-backup.pub`), then `ansible-playbook -i hosts.ini backup-target.yml -K` (lets the G72 accept that key), then `ansible-playbook -i hosts.ini backup.yml -K`. Commit the new `files/akmon-backup.pub`.
 6. Copy `prometheus.yml` from the repo to the server, then restart Prometheus. From `~/t430-homeserver` on Mint: `scp ansible/files/prometheus.yml boss@akmon.local:/tmp/` then on the T430 `sudo cp /tmp/prometheus.yml /srv/prometheus/config/prometheus.yml && docker restart prometheus`.
 7. On Mint, re-fetch the kubeconfig: `ssh boss@akmon.local "sudo cat /etc/rancher/k3s/k3s.yaml"`, save as `~/.kube/config`, change `127.0.0.1` to `192.168.1.32`, then `chmod 600 ~/.kube/config`.
-8. Re-do by hand (data is not backed up): Jellyfin libraries and users, Grafana data source (`http://prometheus:9090`), dashboard 1860, Telegram contact point and alert rules (reference: `grafana/alert-rules.yaml` in the repo), Portainer admin user and environments, and copy the media back.
+8. Restore the service data from the backup (G72 on). Grafana, Jellyfin, Nginx Proxy Manager, Pi-hole and Portainer come back with their users, settings, data source and alert rules. On the T430:
+   - Restore the latest backup to a temporary folder: `sudo bash -c 'set -a; . /etc/restic/restic.env; restic restore latest --target /var/tmp/restore-rebuild'`
+   - Stop the services: `docker stop grafana jellyfin portainer npm pihole`
+   - Copy the data into place, keeping the owners: `sudo cp -a /var/tmp/restore-rebuild/srv/. /srv/`
+   - Start the services: `docker start grafana jellyfin portainer npm pihole`
+   - k3s has no real workloads, so `k3s.yml` rebuilds it. Its backed-up data is in the temporary folder if it is ever needed.
+   - Delete the temporary folder, it contains secrets: `sudo rm -r -- /var/tmp/restore-rebuild`
+   - Copy the media back by hand. Restore test results: `docs/restore-test-report.md`.
 
 ## 9. Alert rules (Grafana, Telegram)
 
@@ -206,4 +215,4 @@ Similarly can be done for the other rules.
 - **DNS depends on one machine.** If the T430 is off, devices pointed at Pi-hole lose name resolution. A second Pi-hole on another machine  would fix this.
 - **Router DNS is locked.** Devices are pointed at Pi-hole individually.
 
-Passwords and tokens (Samba, Grafana admin, Portainer, Telegram bot token) are not stored in this document or in git. Keep them in a password manager.
+Passwords and tokens (Samba, Grafana admin, Portainer, Telegram bot token, Restic backup password) are not stored in this document or in git. Keep them in a password manager.
